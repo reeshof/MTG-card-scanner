@@ -1,0 +1,4 @@
+train_history/**
+weights/**
+!weights/obj_detection_2.h5
+!weights/img_recognition_4_1.h5
