@@ -39,7 +39,7 @@ def getHeatMap(img, centerPoints):
 	for centerPoint in centerPoints:
 		heat = addBoxToHeatMap(heat,centerPoint)
 
-	return heat #returns the image with all the splattered centerpoints
+	return heat
 
 def readJSON(trainingpath):
     with open(trainingpath + 'instances_default.json') as myfile:
@@ -52,10 +52,10 @@ def get_dictionaries(train_split,datasetPath):
 
     n_images = obj['images']
 
-    #annotation dictionary: {'image_id': [ann1,ann2,..]}
+
     annotations = {}
-    #file names dictionary: {'image_id': 'file_name'}
     file_names = {}
+
     for image in obj['images']:
         file_names[image['id']] = image['file_name']
         annotations[image['id']] = []
@@ -66,7 +66,6 @@ def get_dictionaries(train_split,datasetPath):
             segment = segment[0:8]
         annotations[annotation['image_id']].append(segment)
 
-    #list with image_id
     partition = {'train_ids': [], 'val_ids': []}
 
     indices = np.arange(1,len(obj['images'])+1)
@@ -78,6 +77,7 @@ def get_dictionaries(train_split,datasetPath):
 
     return (file_names,partition,annotations)
 
+#getTrainTest is not used for the object detection model, instead the train generators are used for training
 def getTrainTest(shape, datasetPath= "data/obj_det_training/"):
 #shape: the image resolution in which the imported dataset should be converted (height,width,depth)
     obj = readJSON(datasetPath)
@@ -92,7 +92,6 @@ def getTrainTest(shape, datasetPath= "data/obj_det_training/"):
 
     segmentMasks = np.empty((len(obj['images']),8),dtype=float)#holds the segmentation mask
 
-    #read and save all images
     for image in obj['images']:
         heatmaps[image['id']-1] = np.zeros((shape[0],shape[1],1),np.float32)
         img = cv.imread(datasetPath +'train_set/' + image['file_name'])

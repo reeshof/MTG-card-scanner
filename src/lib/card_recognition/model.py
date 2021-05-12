@@ -24,10 +24,6 @@ def effB0_recognition(input_shape,feat_vec_size=128,margin=0.5):
     return [model_train,model_predict]
 
 def embedding_layer(input_shape,feat_vec_size,name=""):
-    batch = 1
-
-    embedded_input = tf.keras.Input(input_shape, name="embedded_input"+name, batch_size=batch)
-
     effB0 = tf.keras.applications.EfficientNetB0(include_top=False,weights="imagenet",input_shape=input_shape)
 
     for layer in effB0.layers:

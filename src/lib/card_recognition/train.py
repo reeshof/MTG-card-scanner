@@ -3,7 +3,6 @@ import utils.util as util
 import os
 import numpy as np
 
-
 def get_dictionaries(dataset_path,train_split=0.7):
     file_names = {}
 

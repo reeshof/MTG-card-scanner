@@ -3,10 +3,7 @@ import utils.util as util
 import numpy as np
 import tensorflow as tf
 import cv2 as cv
-import imgaug as ia
-import imgaug.augmenters as iaa
-import numpy as np
-import matplotlib.pyplot as plt
+
 #https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly
 
 class DataGenerator(tf.keras.utils.Sequence):
@@ -60,13 +57,10 @@ class DataGenerator(tf.keras.utils.Sequence):
                 if pos_index != neg_index:
 
                     dist = f(feat_vec_2)
-                    #print(j,": ",dist)
+
                     if dist < min_distance:
                         min_distance = dist
                         min_index = j
-
-            #print("min index: ",min_index)
-            #print("batch_index: ",batch_index," | mine_index: ", mine_index)
 
             negative_IDs[i] = self.list_IDs[mine_index+min_index]
 
@@ -85,7 +79,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 img = cv.resize(img,(self.dim[1],self.dim[0]))
 
                 images[j] = img
-                #print(i+j,end='\r')
+
             predictions = self.model.predict_on_batch(images)
 
             for j in np.arange(0,self.mine_size):

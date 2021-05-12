@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 import imgaug as ia
-import imgaug.augmenters as iaa
 import cv2 as cv
 
 def round_up_to_odd(f):

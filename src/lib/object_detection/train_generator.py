@@ -4,8 +4,6 @@ import object_detection.train as train
 import numpy as np
 import tensorflow as tf
 import cv2 as cv
-import imgaug as ia
-import imgaug.augmenters as iaa
 
 #https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly
 
@@ -25,7 +23,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.output_stride = output_stride
         self.rng = np.random.default_rng(seed)
         self.training_path = training_path
-        self.on_epoch_end()
 
     def __len__(self):
         'Denotes the number of batches per epoch'
@@ -33,11 +30,9 @@ class DataGenerator(tf.keras.utils.Sequence):
 
     def __getitem__(self, index):
         'Generate one batch of data'
-        # Generate indexes of the batch
         self.rng.shuffle(self.list_IDs)#shuffle on each batch
         IDs = self.list_IDs[:self.batch_size]
 
-        # Generate data
         X, y = self.__data_generation(IDs)
 
         return X, y
@@ -54,7 +49,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         anglemaps = np.zeros((self.batch_size,*output_dim,1),dtype=np.float32)
         whmaps = np.zeros((self.batch_size,*output_dim,2),dtype=np.float32)
 
-        # Generate data
         for i, ID in enumerate(list_IDs_temp):
             img = cv.imread(self.training_path + self.file_names[ID])
             img_height = img.shape[0]
@@ -63,8 +57,8 @@ class DataGenerator(tf.keras.utils.Sequence):
             img = cv.resize(img,(self.dim[1],self.dim[0]))
 
             resfactor = [0,0]
-            resfactor[0] = self.dim[0] / img_height #/ self.output_stride
-            resfactor[1] = self.dim[1] / img_width #/ self.output_stride
+            resfactor[0] = self.dim[0] / img_height
+            resfactor[1] = self.dim[1] / img_width
             segment_mask = np.tile(np.array(resfactor),4)
 
             bbs = np.multiply(self.annotations[ID],segment_mask)
@@ -82,7 +76,6 @@ class DataGenerator(tf.keras.utils.Sequence):
                 centerpoint = np.flip(np.round(util.computerCenterPointPolygon(segment),0).astype(int))
 
                 if(util.point_outside_bounds(centerpoint,output_dim)):
-                    #print(centerpoint)
                     break
 
                 object_size = util.polygonbox_width_height(segment)

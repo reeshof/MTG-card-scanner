@@ -11,10 +11,12 @@ import imgaug.augmenters as iaa
 from pathlib import Path
 
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
-assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
-config = tf.config.experimental.set_memory_growth(physical_devices[0], True)
+if len(physical_devices) > 0:
+    config = tf.config.experimental.set_memory_growth(physical_devices[0], True)
+else:
+    print("No gpu was detected, cpu is being used")
 
-tf.compat.v1.disable_eager_execution() #THIS HELPS A LOT FOR PREDICTION TIME
+tf.compat.v1.disable_eager_execution() #THIS HELPED A LOT FOR PREDICTION TIME
 
 class object_detection_model():
     #assume working directory is 'src'
@@ -125,7 +127,6 @@ def get_objects(img,predicted,num_keypoints,dim):
             cropped_image = util.extract_roi(img,[object_centerpoint[1],object_centerpoint[2]],width,height,np.arctan2(predicted_orientation[1],-predicted_orientation[0]))
             cropped_images.append(cropped_image)
 
-    #print("found number of regions: ",num_regions)
     return cropped_images
 
 def get_boundingboxes(predicted, dim):

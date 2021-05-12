@@ -1,4 +1,3 @@
 __pycache__
 *.txt
-!requirements_.txt
-!.gitignore
+!requirements.txt

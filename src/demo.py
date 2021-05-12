@@ -2,10 +2,9 @@ import _init_paths
 import card_recognition.card_recognition as rec
 import object_detection.object_detection as obj
 import utils.util as util
-import time
 
+import time
 import cv2 as cv
-import matplotlib.pyplot as plt
 import numpy as np
 
 def recognition_model(feat_vec_size1):
@@ -67,8 +66,12 @@ def demo_detection_train():
 
 def demo_recognition_test():
     model = recognition_model(256)
-    model.load_pred_arrays('img_recognition_3_4_5')
+    model.load_pred_arrays('img_recognition_4_1')
     model.test_performance()
+
+def demo_recognition_test_single(model,img):
+    pred_image = model.predict_image(img)
+    util.showimg(pred_image)
 
 def demo_recognition_train():
     model = recognition_model(256)
@@ -90,7 +93,6 @@ def cam_loop(model_det,model_rec,cam, dim):
         time_start = time.clock()
 
         ret_val, img = cam.read()
-        #img = img[0:480,140:140+360]
 
         [i,pred] = model_det.get_predictions(img)
         bbs = obj.get_boundingboxes(pred,dim)

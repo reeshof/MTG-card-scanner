@@ -2,7 +2,6 @@ import utils.util as util
 
 import tensorflow as tf
 import numpy as np
-import matplotlib.pyplot as plt
 from keras.models import model_from_json
 
 def getEffB0Model(inputshape):
@@ -14,9 +13,7 @@ def getEffB0Model(inputshape):
 
 	upsampled = effB0.output
 
-	#transposed layer doubles the dimensionality. not sure how many channels to choose
-	numChannels = 1
-
+	#transposed layer doubles the dimensionality.
 	initializer = tf.keras.initializers.RandomNormal(stddev=0.1)
 
 	trans = tf.keras.layers.Conv2DTranspose(16,3,2,'same', kernel_initializer = initializer )
@@ -30,19 +27,15 @@ def getEffB0Model(inputshape):
 	trans = tf.keras.layers.Conv2DTranspose(8,3,2,'same', kernel_initializer = initializer )
 	upsampled = trans(upsampled)
 
-	#using efficientnetB0, the output is now the same as the input
+	#using efficientnetB0, the output dimensionalityis now the same as the input
 	outputMap = tf.keras.layers.Conv2D(5, 3, use_bias=True, padding='same', kernel_initializer = initializer )(upsampled)
 	outputMap = tf.keras.layers.Activation('relu')(outputMap)
-	#outputMap = tf.keras.layers.Conv2D(1, 1, use_bias=True, kernel_initializer = initializer, name='output_heatmap',activation = 'sigmoid')(outputMap)
 	outputMap = tf.keras.layers.Conv2D(1, 1, use_bias=True, kernel_initializer = initializer)(outputMap)
 	outputMap = tf.keras.layers.ReLU(1.0, name='output_heatmap')(outputMap)
 
 	outputAngle = tf.keras.layers.Conv2D(5, 3, use_bias=True, padding='same', kernel_initializer = initializer )(upsampled)
 	outputAngle = tf.keras.layers.Activation('relu')(outputAngle)
 	outputAngle = tf.keras.layers.Conv2D(1, 1, use_bias=True, kernel_initializer = initializer, name='output_angle',activation = 'tanh')(outputAngle)
-	#outputAngle = tf.keras.layers.Lambda(lambda x: tf.math.sin(x))
-	#,activation = 'tanh'
-	#outputAngle = tf.keras.activations.tanh()(outputAngle)
 
 	outputwh = tf.keras.layers.Conv2D(5, 3, use_bias=True, padding='same', kernel_initializer = initializer )(upsampled)
 	outputwh = tf.keras.layers.Activation('relu')(outputwh)
@@ -51,6 +44,7 @@ def getEffB0Model(inputshape):
 	effB0 = tf.keras.Model(input,[outputMap,outputAngle, outputwh])
 	return effB0
 
+#this model is not used, during experiments it did not show better results
 def getHourglassModel():
 	json_file = open('trained_models/hg_s2_b1_mobile/net_arch_mobile.json', 'r')
 	loaded_model_json = json_file.read()
@@ -67,13 +61,10 @@ def getHourglassModel():
 	outputMap = tf.keras.layers.Conv2D(1, 3, use_bias=True, padding='same', kernel_initializer = initializer )(conv_output)
 	outputMap = tf.keras.layers.Activation('relu')(outputMap)
 	outputMap = tf.keras.layers.Conv2D(1, 1, use_bias=True, kernel_initializer = initializer, name='output_heatmap',activation = 'sigmoid')(outputMap)
-	#outputMap = tf.keras.layers.Conv2D(1, 1, use_bias=True, kernel_initializer = initializer)(outputMap)
-	#outputMap = tf.keras.layers.ReLU(1.0, name='output_heatmap')(outputMap)
 
 	outputAngle = tf.keras.layers.Conv2D(10, 3, use_bias=True, padding='same', kernel_initializer = initializer )(conv_output)
 	outputAngle = tf.keras.layers.Activation('relu')(outputAngle)
 	outputAngle = tf.keras.layers.Conv2D(2, 1, use_bias=True, kernel_initializer = initializer, name='output_angle',activation = 'tanh' )(outputAngle)
-	#outputAngle = tf.keras.activations.tanh()(outputAngle)
 
 	outputwh = tf.keras.layers.Conv2D(30, 3, use_bias=True, padding='same', kernel_initializer = initializer )(conv_output)
 	outputwh = tf.keras.layers.Activation('relu')(outputwh)
@@ -84,8 +75,8 @@ def getHourglassModel():
 	return hourglass
 
 def focalLoss(groundTruth,predicted):
+	#see 'objects as points' paper for much information on this loss function
 	epsilon = tf.constant(0.000000001)
-	#predicted = tf.math.add(predicted,epsilon)
 
 	positive_indices = tf.math.equal(groundTruth,tf.constant(1.0))#positive loss indices mask
 	negative_indices = tf.math.less(groundTruth,tf.constant(1.0))#negative loss indices mask
@@ -110,7 +101,6 @@ def focalLoss(groundTruth,predicted):
 
 	num_keypoints = tf.cast(tf.math.count_nonzero(positive_indices), tf.float32)
 
-	#loss is sum of the pixel wise losses
 	positive_loss = tf.math.reduce_sum(positive_loss)#tf.math.multiply(,10.0)
 	negative_loss = tf.math.reduce_sum(negative_loss)
 
@@ -132,13 +122,13 @@ def angleLoss(groundtruth, predicted):
 
 	num_keypoints = tf.cast(tf.math.count_nonzero(keypoint_indices), tf.float32)
 
-	return tf.math.divide(angle_loss,num_keypoints)#angle loss is multiplied by 2, so that the loss is between 0-1 per keypoint
+	return tf.math.divide(angle_loss,num_keypoints)
 
 def whLoss(groundtruth, predicted):
 	keypoint_indices = tf.math.greater(groundtruth,tf.constant(0.0))
 
-	loss = tf.math.abs(tf.math.subtract(groundtruth,predicted))#L1 loss
-	loss = tf.boolean_mask(loss,keypoint_indices)#get the loss only at centerpoint locations
+	loss = tf.math.abs(tf.math.subtract(groundtruth,predicted))
+	loss = tf.boolean_mask(loss,keypoint_indices)
 	loss = tf.math.reduce_sum(loss)
 
 	num_keypoints = tf.cast(tf.math.count_nonzero(keypoint_indices), tf.float32)
@@ -152,29 +142,10 @@ def lr_scheduler(epoch, lr):
         return lr * decay_rate
     return lr
 
-def trainModel(images,heatmaps,anglemaps,whmaps, model, batchsize,EPOCHS,name):
-	callbacks = [tf.keras.callbacks.LearningRateScheduler(lr_scheduler, verbose=1)]
-
-	H = model.fit(x=images[:60],y={'output_heatmap':heatmaps[:60],'output_angle':anglemaps[:60],'output_wh':whmaps[:60]},
-		batch_size=batchsize,epochs=EPOCHS,shuffle=True,
-		validation_data=(images[60:80],{'output_heatmap':heatmaps[60:80],'output_angle':anglemaps[60:80],'output_wh':whmaps[60:80]}),
-		callbacks=callbacks)
-
-	# plot the total loss, category loss, and color loss
-	util.plotData(H.history['loss'],H.history['val_loss'],'loss',name)
-	util.plotData(H.history['output_heatmap_loss'],H.history['val_output_heatmap_loss'],'heatmap_loss',name)
-	util.plotData(H.history['output_angle_loss'],H.history['val_output_angle_loss'],'angle_loss',name)
-	util.plotData(H.history['output_wh_loss'],H.history['val_output_wh_loss'],'wh_loss',name)
-
-	util.minmaxLoss(H)
-
-	return H
-
 def trainModelWithGenerator(train_generator,val_generator,model,epochs,name,model_history_path,callbacks=[tf.keras.callbacks.LearningRateScheduler(lr_scheduler, verbose=1)],
 		):
 	H =model.fit(x = train_generator,validation_data=val_generator,epochs=epochs,callbacks=callbacks)
 
-	# plot the total loss, category loss, and color loss
 	if name is not None:
 		util.plotData(H.history['loss'],H.history['val_loss'],'loss',name,model_history_path)
 		util.plotData(H.history['output_heatmap_loss'],H.history['val_output_heatmap_loss'],'heatmap_loss',name,model_history_path,ylim=(0,10))

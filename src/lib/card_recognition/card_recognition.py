@@ -1,27 +1,27 @@
 import card_recognition.train as train
 import card_recognition.train_generator as train_generator
 import card_recognition.model as model
+import utils.util as util
 
 import imgaug.augmenters as iaa
 import tensorflow as tf
 import cv2 as cv
 import numpy as np
 import json
-import matplotlib.pyplot as plt
-import os
 import time
 
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
-assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
-config = tf.config.experimental.set_memory_growth(physical_devices[0], True)
+if len(physical_devices) > 0:
+    config = tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-#tf.compat.v1.disable_eager_execution() #THIS HELPS A LOT FOR PREDICTION TIME
+tf.compat.v1.disable_eager_execution() #THIS HELPED A LOT FOR PREDICTION TIME
 
 class card_recognition_model():
     _weights_path = '../models/weights/'
     _test_images = '../data/img_rec_test/'
     _train_images= '../images/'#the scryfall card images ~55000 images
     _feature_files = '../data/recognition_features/'
+    _output_examples = '../../demoimages/'
 
     def __init__(self, dim=(204,146),feat_vec_size=256):
         [self.partition,self.file_names] = train.get_dictionaries(card_recognition_model._train_images+'scryfall/',0.9)
@@ -30,6 +30,15 @@ class card_recognition_model():
         self.feat_vec_size = feat_vec_size
 
         [self.model,self.model_pred]  = model.effB0_recognition((*self.dim,3),self.feat_vec_size)
+
+        layers_top = ['block7a_project_conv', 'top_conv', 'block7a_expand_conv', 'block6d_project_conv', 'block6c_project_conv', 'block6b_project_conv', 'block6a_project_conv', 'block6b_expand_conv']
+        layers_mid = ['block6a_expand_conv','block5c_project_conv','block5c_expand_conv','block5b_dwconv','block5b_expand_conv','block5a_project_conv']
+        layers_bot = ['block5a_expand_conv','block4c_project_conv','block4c_expand_conv','block4b_project_conv','block4b_expand_conv','block4a_project_conv','block4a_expand_conv']
+
+        for layer in layers_top:
+            self.model.layers[3].get_layer(layer).trainable = True
+        for layer in layers_mid:
+            self.model.layers[3].get_layer(layer).trainable = True
 
     def load_generators(self,num_train=None,num_val=None,batch_size=32,seed=1):
         self.seq = iaa.Sequential([
@@ -89,7 +98,6 @@ class card_recognition_model():
                 img = cv.resize(img,(self.dim[1],self.dim[0]))
                 images[j] = img
                 image_names[j] = self.file_names[id]
-                #print(i+j,end='\r')
             predictions = self.model_pred.predict_on_batch(images)
 
             for j in np.arange(0,self.predict_batch_size):
@@ -166,13 +174,13 @@ class card_recognition_model():
             img = cv.resize(img,(self.dim[1],self.dim[0]))
 
             time_elapsed = (time.clock() - time_start)
-            print("img reading time", time_elapsed, sep =":")
+            #print("img reading time", time_elapsed, sep =":")
 
             time_start = time.clock()
             predicted_feat_vec = self.model_pred.predict(img.reshape(1,*self.dim,3))[0]
             #predicted_feat_vec = self.augment_test(img)
             time_elapsed = (time.clock() - time_start)
-            print("feature comp time", time_elapsed, sep =":")
+            #print("feature comp time", time_elapsed, sep =":")
 
 
             time_start = time.clock()
@@ -181,12 +189,12 @@ class card_recognition_model():
             distances = np.add.reduce(distances,axis=1,dtype='float32')
 
             time_elapsed = (time.clock() - time_start)
-            print("compute distances", time_elapsed, sep =":")
+            #print("compute distances", time_elapsed, sep =":")
 
             time_start = time.clock()
             dist_sort_ind = np.argsort(distances)
             time_elapsed = (time.clock() - time_start)
-            print("sorted distances", time_elapsed, sep =":")
+            #print("sorted distances", time_elapsed, sep =":")
 
 
             min_distance=distances[dist_sort_ind[0]]
@@ -195,17 +203,6 @@ class card_recognition_model():
 
             if cardname_test == card_name:
                 num_matched = num_matched+1
-            '''
-            else:
-                for i in np.arange(0,10):
-                    min_url = feat_vecs_urls[dist_sort_ind[i]]
-                    true_img = cv.imread(model_recognition._train_images +'scryfall/'+ min_url)
-                    #plt.figure(50)
-                    #plt.imshow(img)\
-                    print(i)
-                    plt.imshow(true_img)
-                    plt.show()
-            '''
 
             if cardid_test == min_url.partition(".")[0]:
                 num_matched_exact = num_matched_exact+1
